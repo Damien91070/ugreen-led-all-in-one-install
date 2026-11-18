@@ -4,6 +4,15 @@ Unofficial integration of the UGREEN front-panel LED driver, monitoring tools, a
 
 > **Credits:** This project is based on [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller), which provides the original UGREEN LED driver and monitoring utilities. Original copyright and MIT license are preserved in [LICENSE](LICENSE). Unofficial community packaging; not affiliated with UGREEN.
 
+## Table of contents
+
+- [Hardware-tested configuration](#hardware-tested-configuration)
+- [Features](#features)
+- [Install / upgrade](#install--upgrade)
+- [Repository files and reproducibility](#repository-files-and-reproducibility)
+- [License](#license)
+- [Quick reference — LED control and troubleshooting](#quick-reference--led-control-and-troubleshooting)
+
 ## Hardware-tested configuration
 
 | Component | Environment |
