@@ -82,3 +82,43 @@ The package contains precompiled upstream userspace utilities. Rebuilding the De
 ## License
 
 Original source: [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller) — MIT, copyright © 2024 miskcoo@gmail.com, with the original notice retained. Additional packaging/integration is shared on compatible MIT terms. No warranty or official UGREEN support.
+
+## Quick reference — LED control and troubleshooting
+
+Run these commands as `root` (or with `sudo`). These examples apply to the tested DXP6800 Pro under Debian 13 / OMV 8.
+
+```bash
+# Global LED power / state
+ugreen-led-control on
+ugreen-led-control off
+ugreen-led-control status
+
+# Full system diagnostics and DKMS
+ugreen-led-complete-check
+dkms status
+
+# Display the current RGB color of every available disk, network and power LED
+for led in /sys/class/leds/{disk*,netdev,power}; do
+    [ -f "$led/color" ] && echo "$(basename "$led"): $(cat "$led/color")"
+done
+
+# Individual LED color (example: tested SATA drive /dev/sde -> disk6)
+cat /sys/class/leds/disk6/color
+
+# Standby detector and non-waking drive-state query
+pgrep -af ugreen-check-standby
+smartctl -n standby -i /dev/sde
+
+# Disk/network monitoring services (change the interface if needed)
+systemctl status ugreen-diskiomon.service
+systemctl status ugreen-netdevmon@enp89s0.service
+systemctl status ugreen-led-manager-hotplug.service
+systemctl status ugreen-led-manager-power.service
+systemctl status ugreen-probe-leds.service
+
+# Follow disk and SATA hotplug logs
+journalctl -u ugreen-diskiomon.service -f
+journalctl -u ugreen-led-manager-hotplug.service -f
+```
+
+**Observed disk LEDs on the tested host:** green `0 255 0` = healthy/awake; blue `0 0 255` = standby; red `255 0 0` = SMART failure or unavailable (depending on monitoring/configuration). The helper never forces drives to sleep. Disk/LED slot mapping and network-interface names can differ on other machines. Do not force active RAID member drives into standby for testing.
