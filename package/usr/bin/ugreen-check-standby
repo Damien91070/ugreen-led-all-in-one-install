@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Read-only ATA standby polling for UGREEN disk LED colors.
+
+Called by ugreen-diskiomon with:
+  ugreen-check-standby INTERVAL 'R G B' 'R G B' DEVICE LED [DEVICE LED ...]
+
+Only a confidently identified ACTIVE/IDLE or STANDBY state changes the LED.
+Alert/unknown colors are deliberately never overwritten.
+"""
+import re
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+LED_ROOT = Path('/sys/class/leds')
+BLOCK_ROOT = Path('/sys/block')
+STOP = False
+
+
+def stop(_signum, _frame):
+    global STOP
+    STOP = True
+
+
+def classify_smartctl(returncode, output):
+    """Return 'standby', 'active', or None (indeterminate)."""
+    if re.search(r'\b(?:STANDBY|SLEEP)\s+mode\b', output, re.I):
+        return 'standby'
+    if re.search(r'\bACTIVE\s+or\s+IDLE\s+mode\b', output, re.I):
+        return 'active'
+    # smartctl -n standby exits early for standby.  On supported ATA drives,
+    # a successful -i response with drive identification implies an awake disk.
+    if returncode == 0 and re.search(r'^(?:Device Model|Model Number|Model Family):', output, re.M):
+        return 'active'
+    return None
+
+
+def disk_state(device):
+    if not re.fullmatch(r'sd[a-z]+', device):
+        return None
+    if not (BLOCK_ROOT / device).is_dir():
+        return None
+    try:
+        result = subprocess.run(
+            ['/usr/sbin/smartctl', '-n', 'standby', '-i', '/dev/' + device],
+            capture_output=True, text=True, errors='replace', timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return classify_smartctl(result.returncode, result.stdout + '\n' + result.stderr)
+
+
+def update_led(device, led, standby_color, healthy_color):
+    if not re.fullmatch(r'disk[1-8]', led):
+        return
+    state = disk_state(device)
+    if state is None:
+        return
+    color_path = LED_ROOT / led / 'color'
+    desired = standby_color if state == 'standby' else healthy_color
+    try:
+        current = ' '.join(color_path.read_text().split())
+        # Never overwrite the red SMART, missing-disk or ZFS alert indications.
+        if current not in (standby_color, healthy_color):
+            return
+        if current != desired:
+            color_path.write_text(desired + '\n')
+    except OSError:
+        pass
+
+
+def main(args):
+    if len(args) < 5 or (len(args) - 3) % 2:
+        print('Usage: ugreen-check-standby INTERVAL "STANDBY_R G B" "HEALTH_R G B" DEVICE LED ...', file=sys.stderr)
+        return 2
+    try:
+        interval = float(args[0])
+        if not (interval > 0) or interval == float('inf'):
+            raise ValueError
+    except ValueError:
+        print('Invalid interval', file=sys.stderr)
+        return 2
+    # Existing v1.0.2 configs set interval=1: never poll sleeping RAID disks
+    # every second even after a package upgrade.
+    if interval < 30:
+        print(f'ugreen-check-standby: polling interval {interval:g}s raised to 30s for disk safety', file=sys.stderr, flush=True)
+        interval = 30
+    standby_color = ' '.join(args[1].split())
+    healthy_color = ' '.join(args[2].split())
+    if not all(re.fullmatch(r'(?:\d{1,3} ){2}\d{1,3}', c) and all(0 <= int(x) <= 255 for x in c.split()) for c in (standby_color, healthy_color)):
+        print('Invalid LED RGB values', file=sys.stderr)
+        return 2
+    pairs = list(zip(args[3::2], args[4::2]))
+    if not pairs:
+        return 2
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    while not STOP:
+        for device, led in pairs:
+            if STOP:
+                break
+            update_led(device, led, standby_color, healthy_color)
+        # Short sleeps ensure prompt SIGTERM during service stop.
+        deadline = time.monotonic() + interval
+        while not STOP and time.monotonic() < deadline:
+            time.sleep(min(1, max(0, deadline - time.monotonic())))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
