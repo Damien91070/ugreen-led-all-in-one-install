@@ -1,5 +1,5 @@
 Package: ugreen-led-complete
-Version: 1.0.2
+Version: 1.0.3
 Section: admin
 Priority: optional
 Architecture: amd64
@@ -9,4 +9,4 @@ Conflicts: led-ugreen-dkms, led-ugreen-utils, ugreen-led-manager
 Replaces: led-ugreen-dkms, led-ugreen-utils, ugreen-led-manager
 Provides: led-ugreen-dkms, led-ugreen-utils, ugreen-led-manager
 Description: Integrated UGREEN DXP6800 LED driver, utilities and manager
- Includes kernel DKMS module, disk/network monitoring and LED control.
+ Includes kernel DKMS module, disk/network monitoring, standby status and LED control.
