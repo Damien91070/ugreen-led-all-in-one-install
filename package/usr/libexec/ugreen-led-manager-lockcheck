@@ -1,0 +1,14 @@
+#!/usr/bin/python3
+import os, pathlib, sys
+lock=pathlib.Path('/run/ugreen-diskiomon.lock')
+if not lock.exists(): sys.exit(0)
+for proc in pathlib.Path('/proc').iterdir():
+    if not proc.name.isdigit() or int(proc.name)==os.getpid(): continue
+    try:
+        args=(proc/'cmdline').read_bytes().split(b'\0')
+    except (OSError, PermissionError): continue
+    if b'/usr/bin/ugreen-diskiomon' in args or (args and args[0] == b'/usr/bin/ugreen-diskiomon'):
+        print('UGREEN: another diskiomon process is running; refusing to remove lock',file=sys.stderr)
+        sys.exit(1)
+lock.unlink(missing_ok=True)
+print('UGREEN: removed stale diskiomon lock')

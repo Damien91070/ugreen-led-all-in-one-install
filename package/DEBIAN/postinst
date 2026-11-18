@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+ if [ ! -e /etc/ugreen-leds.conf ]; then
+  if [ -f /var/backups/ugreen-led-complete/preinstall/ugreen-leds.conf ]; then
+   cp -p /var/backups/ugreen-led-complete/preinstall/ugreen-leds.conf /etc/ugreen-leds.conf
+  else
+   cp /etc/ugreen-leds.example.conf /etc/ugreen-leds.conf
+  fi
+ fi
+ # Register and compile for the currently running kernel. Avoid rebuild if already installed.
+ if ! dkms status -m led-ugreen -v 0.3 -k "$(uname -r)" 2>/dev/null | grep -q 'installed'; then
+  if ! dkms status -m led-ugreen -v 0.3 2>/dev/null | grep -q 'led-ugreen/0.3'; then
+   dkms add -m led-ugreen -v 0.3
+  fi
+  dkms install -m led-ugreen -v 0.3 -k "$(uname -r)"
+ fi
+ systemctl daemon-reload || true
+ echo 'Installed; existing custom services are unchanged. Review then run: sudo ugreen-led-complete-setup'
+fi

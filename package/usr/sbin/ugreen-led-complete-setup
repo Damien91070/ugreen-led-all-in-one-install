@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+[[ $EUID -eq 0 ]] || exit 1
+stamp=$(date +%Y%m%d-%H%M%S)
+backup=/var/backups/ugreen-led-complete/$stamp
+mkdir -p "$backup"
+for f in /etc/ugreen-leds.conf /usr/local/sbin/ugreen-led-control /usr/local/sbin/ugreen-led-hotplug-monitor /etc/systemd/system/ugreen-power-led.service /etc/systemd/system/ugreen-led-hotplug.service /etc/systemd/system/ugreen-diskiomon.service.d/override.conf; do
+ if [[ -f "$f" ]]; then mkdir -p "$backup$(dirname "$f")"; cp -a "$f" "$backup$f"; fi
+done
+for svc in ugreen-led-hotplug.service ugreen-power-led.service; do systemctl disable --now "$svc" 2>/dev/null || true; done
+# Existing local services are preserved on disk for rollback, but masked to prevent accidental starts.
+
+if [[ -f /etc/systemd/system/ugreen-diskiomon.service.d/override.conf ]]; then
+ mv /etc/systemd/system/ugreen-diskiomon.service.d/override.conf "$backup/override.conf.disabled"
+fi
+if [[ -f /etc/udev/rules.d/90-ugreen-led-hotplug.rules ]]; then
+ mv /etc/udev/rules.d/90-ugreen-led-hotplug.rules "$backup/90-ugreen-led-hotplug.rules"
+ udevadm control --reload-rules
+fi
+systemctl daemon-reload
+systemctl enable ugreen-probe-leds.service ugreen-diskiomon.service ugreen-netdevmon@enp89s0.service ugreen-led-manager-hotplug.service ugreen-led-manager-power.service
+/usr/sbin/ugreen-led-control on
+echo "Migration complete. Backup: $backup"

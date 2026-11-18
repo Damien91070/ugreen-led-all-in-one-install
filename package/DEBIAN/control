@@ -1,0 +1,12 @@
+Package: ugreen-led-complete
+Version: 1.0.2
+Section: admin
+Priority: optional
+Architecture: amd64
+Maintainer: Local NAS administrator <root@localhost>
+Depends: dkms, dmidecode, smartmontools, bash, python3, systemd, udev, util-linux, i2c-tools
+Conflicts: led-ugreen-dkms, led-ugreen-utils, ugreen-led-manager
+Replaces: led-ugreen-dkms, led-ugreen-utils, ugreen-led-manager
+Provides: led-ugreen-dkms, led-ugreen-utils, ugreen-led-manager
+Description: Integrated UGREEN DXP6800 LED driver, utilities and manager
+ Includes kernel DKMS module, disk/network monitoring and LED control.

@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+[[ $EUID -eq 0 ]] || { echo 'Run as root' >&2; exit 1; }
+state=/var/lib/ugreen-led-complete/disabled
+services=(ugreen-led-manager-hotplug.service ugreen-diskiomon.service ugreen-netdevmon@enp89s0.service ugreen-led-manager-power.service)
+case "${1:-}" in
+ off)
+  mkdir -p /var/lib/ugreen-led-complete; touch "$state"
+  for svc in "${services[@]}" ugreen-led-hotplug.service ugreen-power-led.service; do systemctl stop "$svc" || true; done
+  for led in power netdev disk{1..8}; do
+   path=/sys/class/leds/$led; [[ -d "$path" ]] || continue
+   for attr in trigger blink_type; do [[ ! -w "$path/$attr" ]] || echo none > "$path/$attr" || true; done
+   [[ ! -w "$path/brightness" ]] || echo 0 > "$path/brightness" || true
+  done
+  echo 'LEDs off';;
+ on)
+  rm -f "$state"
+  systemctl start ugreen-probe-leds.service
+  for svc in "${services[@]}"; do systemctl start "$svc"; done
+  echo 'LEDs on';;
+ status)
+  if [[ -f "$state" ]]; then echo 'Mode: OFF'; else echo 'Mode: ON'; fi
+  for svc in ugreen-probe-leds.service "${services[@]}"; do printf '%s: ' "$svc"; systemctl is-active "$svc" || true; done;;
+ *) echo 'Usage: ugreen-led-control {on|off|status}'; exit 2;;
+esac

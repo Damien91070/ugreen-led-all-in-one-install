@@ -1,0 +1,30 @@
+#!/usr/bin/python3
+import os, re, select, subprocess, sys, time
+# Read udev property records; coalesce events for 3 seconds after the last one.
+proc=subprocess.Popen(['/usr/bin/udevadm','monitor','--udev','--property','--subsystem-match=block'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=0)
+fd=proc.stdout.fileno(); buf=b''; fields={}; due=None
+try:
+ while True:
+    timeout=None if due is None else max(0,due-time.monotonic())
+    readable,_,_=select.select([fd],[],[],timeout)
+    if not readable:
+        due=None
+        if os.path.exists('/var/lib/ugreen-led-complete/disabled'): continue
+        print('Refreshing UGREEN disk LEDs after SATA hotplug',flush=True)
+        subprocess.run(['/usr/bin/systemctl','restart','ugreen-diskiomon.service'],check=False)
+        continue
+    data=os.read(fd,4096)
+    if not data: raise RuntimeError('udevadm monitor terminated')
+    buf+=data
+    while b'\n' in buf:
+        line,buf=buf.split(b'\n',1)
+        s=line.decode('utf-8','replace').strip()
+        if not s:
+            if fields.get('ACTION') in ('add','remove') and fields.get('DEVTYPE')=='disk' and re.search(r'/ata[0-9]+/',fields.get('DEVPATH','')) and re.fullmatch(r'sd[a-z]+',os.path.basename(fields.get('DEVNAME',''))):
+                print('SATA '+fields['ACTION']+' '+fields.get('DEVNAME',''),flush=True)
+                due=time.monotonic()+3
+            fields={}
+        elif '=' in s:
+            k,v=s.split('=',1);fields[k]=v
+finally:
+ proc.terminate()

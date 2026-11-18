@@ -1,0 +1,14 @@
+[Unit]
+Description=UGREEN SATA hotplug LED monitor
+After=systemd-udevd.service ugreen-diskiomon.service
+Wants=ugreen-diskiomon.service
+
+[Service]
+ExecCondition=/usr/libexec/ugreen-led-enabled
+Type=simple
+ExecStart=/usr/libexec/ugreen-led-manager-hotplug
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

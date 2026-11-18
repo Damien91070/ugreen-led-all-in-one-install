@@ -1,8 +1,8 @@
 # Changelog
 
-## v1.0.2
-- Include `i2c-tools` in APT dependencies.
-- Validated upgrade from v1.0.1 on UGREEN DXP6800 Pro / Debian 13 / OMV 8.
+## 1.0.2
+- Added `i2c-tools` to Debian package dependencies.
+- Confirmed successful upgrade from v1.0.1 on DXP6800 Pro / Debian 13 / OMV 8.
 
-## v1.0.1
-- Integrated DKMS driver, LED utilities, hotplug watcher and systemd manager.
+## 1.0.1
+- Consolidated driver, utilities and LED manager; improved SATA hotplug handling and service integration.

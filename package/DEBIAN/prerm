@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ]; then
+ for s in ugreen-led-manager-hotplug.service ugreen-led-manager-power.service; do systemctl disable --now "$s" 2>/dev/null || true; done
+ dkms remove -m led-ugreen -v 0.3 --all 2>/dev/null || true
+fi

@@ -1,0 +1,15 @@
+[Unit]
+Description=UGREEN Power LED violet 50
+After=ugreen-probe-leds.service
+Requires=ugreen-probe-leds.service
+ConditionPathExists=/sys/class/leds
+
+[Service]
+ExecCondition=/usr/libexec/ugreen-led-enabled
+Type=oneshot
+ExecStartPre=/bin/sh -c 'i=0; until test -w /sys/class/leds/power/brightness; do i=$((i+1)); test "$i" -le 30 || exit 1; sleep 1; done'
+ExecStart=/bin/sh -c 'echo none > /sys/class/leds/power/blink_type; echo "255 0 255" > /sys/class/leds/power/color; echo 50 > /sys/class/leds/power/brightness'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
