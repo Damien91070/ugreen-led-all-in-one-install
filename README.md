@@ -1,136 +1,84 @@
-# UGREEN LED Complete — Debian 13 / OpenMediaVault 8
+# UGREEN LED All-in-One for Debian 13 / OpenMediaVault 8
 
-**A consolidated Debian package for UGREEN NAS front-panel LEDs**, combining the UGREEN kernel driver (DKMS), disk/network monitoring utilities, and a small systemd-based LED manager into one installable `.deb`.
+Unofficial integration of the UGREEN front-panel LED driver, monitoring tools, and systemd management into one Debian package, **`ugreen-led-complete`**.
 
-> **Upstream credit:** Based on [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller). The original author reverse-engineered the LED controller protocol and provided the kernel driver, CLI, disk and network monitoring tools. This repository repackages and extends those components for a particular Debian/OMV installation. **This is an independent, unofficial packaging project, not an official upstream release or UGREEN product.**
+> **Credits:** This project is based on [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller), which provides the original UGREEN LED driver and monitoring utilities. Original copyright and MIT license are preserved in [LICENSE](LICENSE). Unofficial community packaging; not affiliated with UGREEN.
 
-## Verified environment
+## Hardware-tested configuration
 
-| Item | Tested configuration |
-| --- | --- |
+| Component | Environment |
+|---|---|
 | NAS | **UGREEN DXP6800 Pro** |
-| Operating system | **Debian 13 (Trixie)** |
-| NAS management | **OpenMediaVault 8** |
-| Kernel | `7.2.12+deb13-amd64` |
-| Driver | `led-ugreen/0.3` via DKMS |
-| Package | `ugreen-led-complete 1.0.2` (`amd64`) |
-| Network LED monitoring | `enp89s0` on the tested machine |
+| OS | Debian 13 (Trixie) |
+| NAS administration | OpenMediaVault 8 |
+| Tested kernel | `7.2.12+deb13-amd64` |
+| Driver | `led-ugreen/0.3`, built with DKMS |
+| Current tested integration | **v1.0.3** |
 
-**Tested:** upgrade from 1.0.1 to 1.0.2, systemd services, LED on/off, reboot persistence, DKMS installation, SATA hotplug detection and disk monitor refresh. **Not yet tested:** a completely fresh Debian 13 / OMV 8 installation or other NAS models/kernels. The package is not guaranteed to be plug-and-play on all configurations.
+v1.0.2 was tested for upgrade, driver setup, systemd services, LED controls, reboot persistence, and SATA hotplug. **v1.0.3 was additionally installed and hardware-tested** on the same NAS.
 
-## What's included?
+### Tested disk standby / wake sequence (v1.0.3)
 
-The package consolidates functionality previously distributed as:
+The new `/usr/bin/ugreen-check-standby` runs under `ugreen-diskiomon.service` and uses `smartctl -n standby -i` to check disk power state without an intentional wakeup.
 
-- `led-ugreen-dkms` 0.3 — kernel module source, DKMS integration.
-- `led-ugreen-utils` 0.3 — probing, disk activity and network activity monitoring, CLI.
-- `ugreen-led-manager` 1.0.0 — power LED policy, SATA hotplug watcher, service orchestration and on/off control.
+A real SATA HDD mapped **`/dev/sde → disk6`** was tested:
 
-These are **integrated files**, not three nested `.deb` archives. The package declares `Conflicts`, `Replaces`, and `Provides` for the older package names.
+| State | Observed LED RGB |
+|---|---|
+| Healthy / active | **Green `0 255 0`** |
+| Standby (verified by SMART `exit(2)`) | **Blue `0 0 255`** |
+| Awake again | **Green `0 255 0`** |
+| SMART / unavailable disk | Red `255 0 0` configured; the new helper does not override alert colors |
 
-### Layout
+These are the **tested host's configuration values**: `COLOR_DISK_HEALTH="0 255 0"`, `COLOR_DISK_STANDBY="0 0 255"`. Other systems or the bundled example configuration may have different normal colors.
 
-```text
-ugreen-led-complete/
-├── README.md
-├── LICENSE
-├── package/                      # Exact dpkg-deb -R extraction of v1.0.2
-│   ├── DEBIAN/                    # control, preinst, postinst, prerm, postrm
-│   ├── etc/                       # example config + systemd units
-│   ├── lib/systemd/system/        # power and hotplug services
-│   └── usr/
-│       ├── bin/                  # upstream monitoring tools and CLI
-│       ├── libexec/              # hotplug, lock and state helpers
-│       ├── sbin/                 # setup, check, on/off/status
-│       └── src/led-ugreen-0.3/   # DKMS driver sources
-├── scripts/build-deb.sh
-├── docs/GUIDE_FR.md               # Detailed French technical guide
-└── .github/ISSUE_TO_UPSTREAM.md   # Suggested upstream discussion
-```
+The polling interval is **at least 30 seconds**, even if a legacy config sets `STANDBY_CHECK_INTERVAL=1`. The helper does **not** command drives to sleep and never overrides unknown/alert LED colors.
 
-## Quick start (Debian 13 / OMV 8)
+## Features
 
-Download `ugreen-led-complete_1.0.2_amd64.deb` from this repository's GitHub Releases (once published), then run as root:
+- Consolidates three older packages: `led-ugreen-dkms 0.3`, `led-ugreen-utils 0.3`, and `ugreen-led-manager 1.0.0`.
+- DKMS kernel driver, disk activity and SMART indication, network activity LEDs.
+- SATA hotplug detection and disk LED monitor refresh.
+- Power LED policy (purple, brightness 50), control `on|off|status`.
+- New v1.0.3 disk standby / wake LED indicator.
+- APT dependencies including `i2c-tools`, migration/setup, diagnostic scripts.
+
+The original three `.deb` archives are not nested inside this package; their functions are integrated in one Debian archive.
+
+## Install / upgrade
+
+Use the v1.0.3 binary from the [Releases page](https://github.com/Damien91070/ugreen-led-all-in-one-install/releases) **when published**.
 
 ```bash
 apt update
-apt install ./ugreen-led-complete_1.0.2_amd64.deb
+apt install ./ugreen-led-complete_1.0.3_amd64.deb
 ugreen-led-complete-setup
+systemctl restart ugreen-diskiomon.service
 ugreen-led-complete-check
 ```
 
-**Prerequisites:** configured Debian APT repositories, a compatible running kernel, and matching kernel headers/build tools so DKMS can compile the driver. Verify before installing:
+Matching Linux **kernel headers and build tools** are required for DKMS and may not be installed automatically. Verify `/lib/modules/$(uname -r)/build` exists.
 
 ```bash
-uname -r
-ls -ld "/lib/modules/$(uname -r)/build"
-```
-
-The `.deb` declares these APT dependencies: `dkms`, `dmidecode`, `smartmontools`, `bash`, `python3`, `systemd`, `udev`, `util-linux`, **`i2c-tools`**. APT resolves these from configured repositories. The probe script attempts to load `i2c-dev` and `led-ugreen` as required; **`i2c-dev` is a kernel module, not an APT package**.
-
-For a **fresh installation**, review the example configuration (`/etc/ugreen-leds.example.conf`), verify the actual network interface with `ip -br link`, and inspect disk-to-slot mapping. The setup tool configures services and migration state; review its changes before relying on it in production.
-
-## Upgrade from previous packages
-
-The new `.deb` is intended to replace the three legacy components. Back up `/etc/ugreen-leds.conf` and custom systemd overrides first. Install with `apt install ./...deb` and run `ugreen-led-complete-setup` to migrate/enable the new services. The setup creates a timestamped backup in `/var/backups/ugreen-led-complete/`.
-
-**Avoid conflicting commands:** an older `/usr/local/sbin/ugreen-led-control` may shadow `/usr/sbin/ugreen-led-control`. Verify with `type -a ugreen-led-control`.
-
-## LED management
-
-```bash
-ugreen-led-control status
-ugreen-led-control off
 ugreen-led-control on
-ugreen-led-complete-check
-
-dkms status
-systemctl status ugreen-probe-leds.service
-systemctl status ugreen-diskiomon.service
-systemctl status ugreen-netdevmon@enp89s0.service
-systemctl status ugreen-led-manager-hotplug.service
-systemctl status ugreen-led-manager-power.service
-
-journalctl -u ugreen-led-manager-hotplug.service -f
-journalctl -u ugreen-diskiomon.service -f
+ugreen-led-control off
+ugreen-led-control status
+pgrep -af ugreen-check-standby
+journalctl -u ugreen-diskiomon.service -n 50 --no-pager
 ```
 
-Use your own interface name instead of `enp89s0` when necessary. Standard `systemctl start|stop|restart|enable|disable` operations apply, but disabling a unit may be overridden by the manager setup/control flow. Use `ugreen-led-control` for coordinated on/off operations.
+**Limitations:** Not verified on completely fresh OMV 8 installs or other UGREEN models; `ugreen-led-complete-setup` still selects network interface `enp89s0` on the tested installation, so verify and adapt it on other machines. Verify SATA device-to-LED mapping; `/dev/sdX` names can change.
 
-The power service sets `/sys/class/leds/power/color` to `255 0 255` (purple) and `brightness` to `50`. Disk monitoring uses ATA-based enumeration by default; **verify physical slot mapping** before treating a particular disk LED as an authoritative failure indicator. `/dev/sdX` names are not persistent.
+Never force a disk in an active RAID array into standby just to test its LED. For an independent, unused test drive, a manual standby test can use `hdparm -y /dev/sdX` after confirming its use and mounting status.
 
-## Important limitations in v1.0.2
+## Repository files and reproducibility
 
-- **Network interface is hardcoded:** `ugreen-led-complete-setup` starts `ugreen-netdevmon@enp89s0.service`. Before using on another NAS, verify its interface with `ip -br link` and adjust the systemd instance or the setup script. Simply installing the package does not make it universally plug-and-play.
-- **Optional disk standby indicator is absent:** the example configuration points to `/usr/bin/ugreen-check-standby`, but this helper is not shipped in v1.0.2. The disk monitor checks for the executable before starting it, so standby-specific LED indication is not enabled by this package alone.
-- **Existing configuration backup caveat:** `preinst` writes timestamped backups under `/var/backups/ugreen-led-complete/preinstall-*`, whereas `postinst` checks a fixed `preinstall/` path. Preserve your `/etc/ugreen-leds.conf` separately before upgrading; `ugreen-led-complete-setup` also makes timestamped backups.
-- **Kernel headers are external prerequisites**, and support on clean installations and other NAS models is not yet established.
+`package/` contains the extracted Debian payload and maintainer scripts. `scripts/build-deb.sh` rebuilds the package from the payload after restoring executable permissions sometimes lost by ZIP/GitHub web uploads. `docs/GUIDE_FR.md` provides a full French Trilium reference.
 
-## Build the Debian package from the extracted payload
+**During the v1.0.3 source update**, verify that `package/usr/bin/ugreen-check-standby` and the updated `package/usr/bin/ugreen-diskiomon` have been uploaded. The GitHub source tree and `v1.0.3` tag must correspond to the released `.deb`.
 
-```bash
-sudo apt install dpkg-dev
-bash scripts/build-deb.sh
-# output: dist/ugreen-led-complete_1.0.2_amd64.deb
-```
+The package contains precompiled upstream userspace utilities. Rebuilding the Debian archive is **not** the same as compiling all upstream userspace binaries from their original sources. The DKMS kernel module is built at installation time.
 
-The `package/` directory contains the **actual extracted v1.0.2 payload**, including `DEBIAN/` maintainer scripts and binary utilities. The build script restores executable permissions (which GitHub web uploads and ZIP extraction may lose) and reconstructs a Debian package from those files; it does **not** recompile the bundled upstream CLI binaries from C/C++ source. The DKMS kernel driver *is* compiled locally at installation time. A rebuilt archive may have a different SHA256 from the published binary due to packaging metadata. The original release binary is stored under `releases/` in this ZIP; upload it as a GitHub Release asset.
+## License
 
-## Troubleshooting
-
-```bash
-dpkg-query -W -f='${Package} ${Version}\n${Depends}\n' ugreen-led-complete
-dpkg-query -W i2c-tools
-command -v i2cdetect
-lsmod | grep -E 'i2c_dev|led_ugreen'
-dkms status
-systemctl --failed
-```
-
-If DKMS fails after a kernel upgrade, check the matching kernel headers and DKMS build logs. Do not assume the package supports an untested kernel. A `lsmod` warning about an unrelated `/sys/module/.../holders` directory was observed on the tested NAS without preventing LED initialization.
-
-## Attribution and licensing
-
-The upstream LED controller, kernel module, CLI, and monitoring scripts originate from **[miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller)**, licensed under the **MIT License** (copyright © 2024 `miskcoo@gmail.com`). The original copyright and license notice are retained in [`LICENSE`](LICENSE). This repository's integration and packaging changes are provided under the same MIT terms insofar as they are distributable by the packager.
-
-Please report core driver/protocol issues upstream; report packaging and manager issues to this project's issue tracker once created. The repository has no affiliation with UGREEN or the original author.
+Original source: [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller) — MIT, copyright © 2024 miskcoo@gmail.com, with the original notice retained. Additional packaging/integration is shared on compatible MIT terms. No warranty or official UGREEN support.
