@@ -6,6 +6,69 @@
 > **Interface réseau surveillée :** `enp89s0`  
 > **Validation terrain :** installation, migration, contrôle ON/OFF, redémarrage et événement Hotplug SATA et cycle veille/réveil HDD validés le 18/11/2026.
 
+## Sommaire
+
+- [1. À quoi sert ce paquet ?](#1-à-quoi-sert-ce-paquet-)
+- [2. Schéma d'architecture (TXT)](#2-schéma-darchitecture-txt)
+- [3. Fonctionnement interne](#3-fonctionnement-interne)
+  - [3.1. Initialisation matérielle](#31-initialisation-matérielle)
+  - [3.2. LED disques](#32-led-disques)
+  - [3.3. LED réseau](#33-led-réseau)
+  - [3.4. Power LED](#34-power-led)
+  - [3.5. Hotplug SATA](#35-hotplug-sata)
+  - [3.6. Verrou anti-double-instance](#36-verrou-anti-double-instance)
+  - [3.7. Persistance du mode ON/OFF](#37-persistance-du-mode-onoff)
+- [4. Installation neuve (aucun ancien paquet UGREEN LED)](#4-installation-neuve-aucun-ancien-paquet-ugreen-led)
+  - [4.1. Prérequis](#41-prérequis)
+  - [4.2. Simulation et installation](#42-simulation-et-installation)
+  - [4.3. Configuration avant activation](#43-configuration-avant-activation)
+  - [4.4. Activer les services](#44-activer-les-services)
+  - [4.5. Validation](#45-validation)
+- [5. Migration depuis les anciens paquets / scripts personnalisés](#5-migration-depuis-les-anciens-paquets--scripts-personnalisés)
+  - [5.1. Sauvegarder avant de migrer](#51-sauvegarder-avant-de-migrer)
+  - [5.2. Simuler le remplacement](#52-simuler-le-remplacement)
+  - [5.3. Installer](#53-installer)
+  - [5.4. Exécuter le setup de migration](#54-exécuter-le-setup-de-migration)
+  - [5.5. Corriger la priorité des anciens scripts](#55-corriger-la-priorité-des-anciens-scripts)
+  - [5.6. Vérification après redémarrage](#56-vérification-après-redémarrage)
+- [6. Commandes principales de gestion LED](#6-commandes-principales-de-gestion-led)
+- [7. Référence exhaustive des services systemd](#7-référence-exhaustive-des-services-systemd)
+  - [7.1. Commandes applicables à chaque service](#71-commandes-applicables-à-chaque-service)
+  - [7.2. Exemples copiables, service par service](#72-exemples-copiables-service-par-service)
+  - [7.3. Anciens services à laisser désactivés](#73-anciens-services-à-laisser-désactivés)
+- [8. Configuration `/etc/ugreen-leds.conf`](#8-configuration-etcugreen-ledsconf)
+  - [8.1. Paramètres des disques](#81-paramètres-des-disques)
+  - [8.2. Paramètres réseau](#82-paramètres-réseau)
+  - [8.3. Modifier et appliquer la configuration](#83-modifier-et-appliquer-la-configuration)
+- [9. Contrôle direct des LED par sysfs (avancé)](#9-contrôle-direct-des-led-par-sysfs-avancé)
+  - [9.1. Lire les valeurs sans modifier](#91-lire-les-valeurs-sans-modifier)
+  - [9.2. Modifier temporairement une LED](#92-modifier-temporairement-une-led)
+  - [9.3. Afficher les attributs disponibles](#93-afficher-les-attributs-disponibles)
+- [10. DKMS, noyau et mises à jour](#10-dkms-noyau-et-mises-à-jour)
+- [11. Journaux, erreurs courantes et dépannage](#11-journaux-erreurs-courantes-et-dépannage)
+  - [11.1. Diagnostic rapide](#111-diagnostic-rapide)
+  - [11.2. `lsmod: ERROR ... /sys/module/sunrpc/holders`](#112-lsmod-error--sysmodulesunrpcholders)
+  - [11.3. `UGREEN: removed stale diskiomon lock`](#113-ugreen-removed-stale-diskiomon-lock)
+  - [11.4. Service Power `inactive (dead)`](#114-service-power-inactive-dead)
+  - [11.5. Mapping disques incorrect](#115-mapping-disques-incorrect)
+  - [11.6. Les LED restent éteintes](#116-les-led-restent-éteintes)
+  - [11.7. Vérifier l'ancien script prioritaire](#117-vérifier-lancien-script-prioritaire)
+- [12. Sauvegardes et désinstallation](#12-sauvegardes-et-désinstallation)
+  - [12.1. Où sont les sauvegardes ?](#121-où-sont-les-sauvegardes-)
+  - [12.2. Examiner le contenu des sauvegardes](#122-examiner-le-contenu-des-sauvegardes)
+  - [12.3. Désinstaller (à préparer, pas à faire sans raison)](#123-désinstaller-à-préparer-pas-à-faire-sans-raison)
+- [13. Exemple d'intégration Home Assistant par SSH](#13-exemple-dintégration-home-assistant-par-ssh)
+- [14. Fiche mémo — commandes essentielles](#14-fiche-mémo--commandes-essentielles)
+- [15. Historique de validation — DXP6800 Pro](#15-historique-de-validation--dxp6800-pro)
+- [16. Mise à jour 1.0.2 — installation autonome et vérifications I²C](#16-mise-à-jour-102--installation-autonome-et-vérifications-i²c)
+  - [16.1. Changement par rapport à la 1.0.1](#161-changement-par-rapport-à-la-101)
+  - [16.2. Procédure recommandée après réinstallation complète d’OMV 8](#162-procédure-recommandée-après-réinstallation-complète-domv-8)
+  - [16.3. Vérification après installation ou mise à niveau](#163-vérification-après-installation-ou-mise-à-niveau)
+  - [16.4. Messages APT non bloquants rencontrés](#164-messages-apt-non-bloquants-rencontrés)
+  - [16.5. Portée de la validation](#165-portée-de-la-validation)
+- [17. Nouveautés v1.0.3 — Détection de veille des HDD (validée sur le NAS)](#17-nouveautés-v103--détection-de-veille-des-hdd-validée-sur-le-nas)
+- [18. Commandes de rappel — Référence rapide (v1.0.3)](#18-commandes-de-rappel--référence-rapide-v103)
+
 ## 1. À quoi sert ce paquet ?
 
 `ugreen-led-complete_1.0.3_amd64.deb` regroupe dans **un seul paquet Debian** les trois composants auparavant séparés :
@@ -905,7 +968,7 @@ Les cinq services étaient actifs au contrôle après mise à niveau, et le mode
 
 ---
 
-## 18. Nouveautés v1.0.3 — Détection de veille des HDD (validée sur le NAS)
+## 17. Nouveautés v1.0.3 — Détection de veille des HDD (validée sur le NAS)
 
 **Configuration réelle testée :** UGREEN DXP6800 Pro, Debian 13 / OMV 8, noyau
 `7.2.12+deb13-amd64`, disque de test SATA `/dev/sde` identifié par
@@ -1000,7 +1063,7 @@ hdparm -y /dev/sde
 
 ---
 
-## 19. Commandes de rappel — Référence rapide (v1.0.3)
+## 18. Commandes de rappel — Référence rapide (v1.0.3)
 
 À exécuter en tant que `root` (ou avec `sudo`) sur le NAS. Les commandes de consultation ne modifient pas les LED, sauf `ugreen-led-control on|off`.
 
