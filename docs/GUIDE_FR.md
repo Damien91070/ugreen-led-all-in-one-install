@@ -1,14 +1,14 @@
 # UGREEN DXP6800 Pro — Gestion complète des LED (Debian 13 / OMV 8)
 
-> **Fiche Trilium — version de référence :** `ugreen-led-complete 1.0.2` (amd64)  
+> **Fiche Trilium — version de référence :** `ugreen-led-complete 1.0.3` (amd64)  
 > **NAS :** UGREEN DXP6800 Pro — Debian 13, OpenMediaVault 8  
 > **Noyau validé :** `7.2.12+deb13-amd64` — **DKMS :** `led-ugreen/0.3`  
 > **Interface réseau surveillée :** `enp89s0`  
-> **Validation terrain :** installation, migration, contrôle ON/OFF, redémarrage et événement Hotplug SATA testés le 18/11/2026.
+> **Validation terrain :** installation, migration, contrôle ON/OFF, redémarrage et événement Hotplug SATA et cycle veille/réveil HDD validés le 18/11/2026.
 
 ## 1. À quoi sert ce paquet ?
 
-`ugreen-led-complete_1.0.2_amd64.deb` regroupe dans **un seul paquet Debian** les trois composants auparavant séparés :
+`ugreen-led-complete_1.0.3_amd64.deb` regroupe dans **un seul paquet Debian** les trois composants auparavant séparés :
 
 | Ancien paquet | Fonction |
 |---|---|
@@ -27,7 +27,7 @@
 ```text
                        Debian 13 / OMV 8
                                |
-                  ugreen-led-complete 1.0.2
+                  ugreen-led-complete 1.0.3
                                |
             +------------------+------------------+
             |                  |                  |
@@ -876,7 +876,7 @@ ugreen-led-complete-check
 Résultats **réellement obtenus** sur le NAS le 18/11/2026 :
 
 ```text
-ugreen-led-complete 1.0.2
+ugreen-led-complete 1.0.3
 dkms, dmidecode, smartmontools, bash, python3, systemd, udev, util-linux, i2c-tools
 i2c-tools       4.4-2
 /usr/sbin/i2cdetect
@@ -901,3 +901,99 @@ Les cinq services étaient actifs au contrôle après mise à niveau, et le mode
 - **Confirmé** : migration de 1.0.1 vers 1.0.2 sur le NAS actuel, dépendance `i2c-tools`, module `i2c_dev`, DKMS, services et Hotplug SATA.
 - **Non encore confirmé** : installation de 1.0.2 sur une machine Debian 13 / OMV 8 totalement vierge, sans les anciens paquets ni la configuration préexistante.
 - **À vérifier** : mapping physique des quatre baies HDD, et disponibilité des headers du noyau après une future réinstallation.
+
+
+---
+
+## 18. Nouveautés v1.0.3 — Détection de veille des HDD (validée sur le NAS)
+
+**Configuration réelle testée :** UGREEN DXP6800 Pro, Debian 13 / OMV 8, noyau
+`7.2.12+deb13-amd64`, disque de test SATA `/dev/sde` identifié par
+`ugreen-diskiomon` comme **`disk6`**. Ce mappage n'est pas universel :
+les noms `/dev/sdX` peuvent changer.
+
+### Principe
+
+La version 1.0.3 ajoute le programme Python `/usr/bin/ugreen-check-standby`,
+lancé automatiquement comme processus enfant de `ugreen-diskiomon.service`.
+Il interroge les disques avec :
+
+```bash
+smartctl -n standby -i /dev/sde
+```
+
+Le mode `-n standby` évite une interrogation SMART normale lorsqu'un disque ATA
+est déjà endormi. Cela ne garantit pas qu'aucun autre composant du NAS ne réveille
+le disque (RAID, services Docker, contrôle SMART indépendant, etc.).
+
+**La veille n'est pas déclenchée par ce programme.** Il observe seulement
+l'état et ajuste la couleur si elle correspond à une couleur normale/veille.
+Les couleurs de défaut SMART ou d'indisponibilité sont préservées.
+
+### Cycle complet observé
+
+| État | Résultat SMART / utilisateur | Couleur `disk6` |
+|---|---|---|
+| Disque sain et actif | Couleur normale configurée | **Vert : `0 255 0`** |
+| Mise en veille via `hdparm -y /dev/sde` | `Device is in STANDBY mode, exit(2)` | **Bleu : `0 0 255`** |
+| Disque réveillé | Retour confirmé par l'utilisateur | **Vert : `0 255 0`** |
+| Alerte SMART / indisponibilité | Couleur d'alerte conservée par le helper | **Rouge : `255 0 0`**, selon les paramètres |
+
+**Important :** l'exemple livré par le paquet peut définir une autre couleur
+pour `COLOR_DISK_HEALTH` (blanc). Sur le NAS testé, la configuration existante
+`/etc/ugreen-leds.conf` définit explicitement `COLOR_DISK_HEALTH="0 255 0"`.
+C'est pourquoi le retour au vert est **normal**, pas une anomalie.
+
+### Paramètres vérifiés sur le NAS
+
+```bash
+STANDBY_MON_PATH=/usr/bin/ugreen-check-standby
+STANDBY_CHECK_INTERVAL=30
+COLOR_DISK_HEALTH="0 255 0"
+COLOR_DISK_UNAVAIL="255 0 0"
+COLOR_DISK_STANDBY="0 0 255"
+COLOR_SMART_FAIL="255 0 0"
+CHECK_SMART=true
+CHECK_SMART_INTERVAL=360
+```
+
+La configuration installée avait initialement `STANDBY_CHECK_INTERVAL=1`,
+mais le helper **impose au minimum 30 secondes**. Le journal le confirme :
+
+```text
+ugreen-check-standby: polling interval 1s raised to 30s for disk safety
+```
+
+Pour harmoniser le fichier de configuration :
+
+```bash
+sed -i 's/^STANDBY_CHECK_INTERVAL=.*/STANDBY_CHECK_INTERVAL=30/' /etc/ugreen-leds.conf
+systemctl restart ugreen-diskiomon.service
+```
+
+### Commandes utiles
+
+```bash
+# Vérifier le helper
+command -v ugreen-check-standby
+pgrep -af ugreen-check-standby
+
+# Vérifier l'état sans réveil volontaire via SMART
+smartctl -n standby -i /dev/sde
+
+# Observer la LED
+cat /sys/class/leds/disk6/color
+watch -n 2 'cat /sys/class/leds/disk6/color'
+
+# Journaux
+journalctl -u ugreen-diskiomon.service -n 60 --no-pager
+```
+
+**Test de mise en veille manuelle (seulement sur un disque indépendant,
+non monté et ne participant pas à un RAID actif)** :
+
+```bash
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS /dev/sde
+cat /proc/mdstat
+hdparm -y /dev/sde
+```
