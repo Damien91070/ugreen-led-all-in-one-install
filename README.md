@@ -66,7 +66,7 @@ uname -r
 ls -ld "/lib/modules/$(uname -r)/build"
 ```
 
-The `.deb` declares these APT dependencies: `dkms`, `dmidecode`, `smartmontools`, `bash`, `python3`, `systemd`, `udev`, `util-linux`, **`i2c-tools`**. APT resolves these from configured repositories. The probe script loads `i2c-dev` and `led-ugreen` as required; **`i2c-dev` is a kernel module, not an APT package**.
+The `.deb` declares these APT dependencies: `dkms`, `dmidecode`, `smartmontools`, `bash`, `python3`, `systemd`, `udev`, `util-linux`, **`i2c-tools`**. APT resolves these from configured repositories. The probe script attempts to load `i2c-dev` and `led-ugreen` as required; **`i2c-dev` is a kernel module, not an APT package**.
 
 For a **fresh installation**, review the example configuration (`/etc/ugreen-leds.example.conf`), verify the actual network interface with `ip -br link`, and inspect disk-to-slot mapping. The setup tool configures services and migration state; review its changes before relying on it in production.
 
@@ -99,15 +99,22 @@ Use your own interface name instead of `enp89s0` when necessary. Standard `syste
 
 The power service sets `/sys/class/leds/power/color` to `255 0 255` (purple) and `brightness` to `50`. Disk monitoring uses ATA-based enumeration by default; **verify physical slot mapping** before treating a particular disk LED as an authoritative failure indicator. `/dev/sdX` names are not persistent.
 
+## Important limitations in v1.0.2
+
+- **Network interface is hardcoded:** `ugreen-led-complete-setup` starts `ugreen-netdevmon@enp89s0.service`. Before using on another NAS, verify its interface with `ip -br link` and adjust the systemd instance or the setup script. Simply installing the package does not make it universally plug-and-play.
+- **Optional disk standby indicator is absent:** the example configuration points to `/usr/bin/ugreen-check-standby`, but this helper is not shipped in v1.0.2. The disk monitor checks for the executable before starting it, so standby-specific LED indication is not enabled by this package alone.
+- **Existing configuration backup caveat:** `preinst` writes timestamped backups under `/var/backups/ugreen-led-complete/preinstall-*`, whereas `postinst` checks a fixed `preinstall/` path. Preserve your `/etc/ugreen-leds.conf` separately before upgrading; `ugreen-led-complete-setup` also makes timestamped backups.
+- **Kernel headers are external prerequisites**, and support on clean installations and other NAS models is not yet established.
+
 ## Build the Debian package from the extracted payload
 
 ```bash
 sudo apt install dpkg-dev
-./scripts/build-deb.sh
+bash scripts/build-deb.sh
 # output: dist/ugreen-led-complete_1.0.2_amd64.deb
 ```
 
-The `package/` directory is the **actual extracted v1.0.2 payload**, including `DEBIAN/` maintainer scripts and binary utilities. The build script reconstructs a Debian package from those files; it does **not** recompile the bundled upstream CLI binaries from C/C++ source. The DKMS kernel driver *is* compiled locally at installation time. A rebuilt archive may have a different SHA256 from the published binary due to packaging metadata.
+The `package/` directory contains the **actual extracted v1.0.2 payload**, including `DEBIAN/` maintainer scripts and binary utilities. The build script restores executable permissions (which GitHub web uploads and ZIP extraction may lose) and reconstructs a Debian package from those files; it does **not** recompile the bundled upstream CLI binaries from C/C++ source. The DKMS kernel driver *is* compiled locally at installation time. A rebuilt archive may have a different SHA256 from the published binary due to packaging metadata. The original release binary is stored under `releases/` in this ZIP; upload it as a GitHub Release asset.
 
 ## Troubleshooting
 
