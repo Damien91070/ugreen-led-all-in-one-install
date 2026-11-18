@@ -997,3 +997,49 @@ lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS /dev/sde
 cat /proc/mdstat
 hdparm -y /dev/sde
 ```
+
+---
+
+## 19. Commandes de rappel — Référence rapide (v1.0.3)
+
+À exécuter en tant que `root` (ou avec `sudo`) sur le NAS. Les commandes de consultation ne modifient pas les LED, sauf `ugreen-led-control on|off`.
+
+```bash
+# Activer, désactiver et afficher le mode des LED
+ugreen-led-control on
+ugreen-led-control off
+ugreen-led-control status
+
+# Diagnostic complet et pilote DKMS
+ugreen-led-complete-check
+dkms status
+
+# Afficher toutes les couleurs réellement appliquées (LED présentes uniquement)
+for led in /sys/class/leds/{disk*,netdev,power}; do
+    [ -f "$led/color" ] && echo "$(basename "$led"): $(cat "$led/color")"
+done
+
+# Lire une seule LED : /dev/sde était associé à disk6 lors du test
+cat /sys/class/leds/disk6/color
+watch -n 2 'cat /sys/class/leds/disk6/color'
+
+# Surveiller le helper de veille et interroger SMART sans réveil volontaire
+pgrep -af ugreen-check-standby
+smartctl -n standby -i /dev/sde
+
+# État des cinq services sur ce NAS (interface réseau : enp89s0)
+systemctl status ugreen-probe-leds.service
+systemctl status ugreen-diskiomon.service
+systemctl status ugreen-netdevmon@enp89s0.service
+systemctl status ugreen-led-manager-hotplug.service
+systemctl status ugreen-led-manager-power.service
+
+# Journaux de surveillance des HDD et des événements SATA
+journalctl -u ugreen-diskiomon.service -n 50 --no-pager
+journalctl -u ugreen-diskiomon.service -f
+journalctl -u ugreen-led-manager-hotplug.service -f
+```
+
+**Couleurs réellement testées sur `/dev/sde → disk6` :** vert `0 255 0` = disque sain/actif ; bleu `0 0 255` = veille ; retour au vert après réveil. Le rouge `255 0 0` est défini pour certaines alertes SMART ou disques indisponibles. L'apparence exacte dépend du fichier `/etc/ugreen-leds.conf` ; un défaut SMART doit être confirmé dans les journaux.
+
+**Précautions :** ne jamais forcer un disque membre d'un RAID actif en veille pour tester une LED. Les noms `/dev/sdX`, les emplacements `diskN` et l'interface réseau peuvent varier après redémarrage ou selon le modèle UGREEN.
