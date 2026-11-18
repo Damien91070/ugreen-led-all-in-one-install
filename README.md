@@ -47,7 +47,7 @@ The original three `.deb` archives are not nested inside this package; their fun
 
 ## Install / upgrade
 
-Use the v1.0.3 binary from the [Releases page](https://github.com/Damien91070/ugreen-led-all-in-one-install/releases) **when published**.
+Download the v1.0.3 binary from the [Releases page](https://github.com/Damien91070/ugreen-led-all-in-one-install/releases) when it is published.
 
 ```bash
 apt update
@@ -75,7 +75,7 @@ Never force a disk in an active RAID array into standby just to test its LED. Fo
 
 `package/` contains the extracted Debian payload and maintainer scripts. `scripts/build-deb.sh` rebuilds the package from the payload after restoring executable permissions sometimes lost by ZIP/GitHub web uploads. `docs/GUIDE_FR.md` provides a full French Trilium reference.
 
-**During the v1.0.3 source update**, verify that `package/usr/bin/ugreen-check-standby` and the updated `package/usr/bin/ugreen-diskiomon` have been uploaded. The GitHub source tree and `v1.0.3` tag must correspond to the released `.deb`.
+The v1.0.3 source tree includes `package/usr/bin/ugreen-check-standby` and the updated `package/usr/bin/ugreen-diskiomon`. Before publishing, ensure the `v1.0.3` tag and release binary correspond to this source tree.
 
 The package contains precompiled upstream userspace utilities. Rebuilding the Debian archive is **not** the same as compiling all upstream userspace binaries from their original sources. The DKMS kernel module is built at installation time.
 
