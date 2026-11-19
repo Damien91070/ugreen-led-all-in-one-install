@@ -2,7 +2,7 @@
 
 Unofficial integration of the UGREEN front-panel LED driver, monitoring tools, and systemd management into one Debian package, **`ugreen-led-complete`**.
 
-> **Credits:** This project is based on @miskcoo [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller), which provides the original UGREEN LED driver and monitoring utilities. Original copyright and MIT license are preserved in [LICENSE](LICENSE). Unofficial community packaging; not affiliated with UGREEN.
+> **Credits:** This project is based on [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller), which provides the original UGREEN LED driver and monitoring utilities. Original copyright and MIT license are preserved in [LICENSE](LICENSE). Unofficial community packaging; not affiliated with UGREEN.
 
 ## Table of contents
 
@@ -131,3 +131,7 @@ journalctl -u ugreen-led-manager-hotplug.service -f
 ```
 
 **Observed disk LEDs on the tested host:** green `0 255 0` = healthy/awake; blue `0 0 255` = standby; red `255 0 0` = SMART failure or unavailable (depending on monitoring/configuration). The helper never forces drives to sleep. Disk/LED slot mapping and network-interface names can differ on other machines. Do not force active RAID member drives into standby for testing.
+
+## Acknowledgement
+
+ChatGPT, [@miskcoo](https://github.com/miskcoo)
