@@ -2,7 +2,7 @@
 
 Unofficial integration of the UGREEN front-panel LED driver, monitoring tools, and systemd management into one Debian package, **`ugreen-led-complete`**.
 
-> **Credits:** This project is based on [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller), which provides the original UGREEN LED driver and monitoring utilities. Original copyright and MIT license are preserved in [LICENSE](LICENSE). Unofficial community packaging; not affiliated with UGREEN.
+> **Credits:** This project is based on @miskcoo [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller), which provides the original UGREEN LED driver and monitoring utilities. Original copyright and MIT license are preserved in [LICENSE](LICENSE). Unofficial community packaging; not affiliated with UGREEN.
 
 ## Table of contents
 
