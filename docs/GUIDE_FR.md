@@ -1,6 +1,6 @@
 # UGREEN DXP6800 Pro — Gestion complète des LED (Debian 13 / OMV 8)
 
-> **Fiche Trilium — version de référence :** `ugreen-led-complete 1.0.3` (amd64)  
+> **Fiche Trilium — version de référence :** `ugreen-led-complete 1.0.4` (amd64)  
 > **NAS :** UGREEN DXP6800 Pro — Debian 13, OpenMediaVault 8  
 > **Noyau validé :** `7.2.12+deb13-amd64` — **DKMS :** `led-ugreen/0.3`  
 > **Interface réseau surveillée :** `enp89s0`  
@@ -1106,3 +1106,20 @@ journalctl -u ugreen-led-manager-hotplug.service -f
 **Couleurs réellement testées sur `/dev/sde → disk6` :** vert `0 255 0` = disque sain/actif ; bleu `0 0 255` = veille ; retour au vert après réveil. Le rouge `255 0 0` est défini pour certaines alertes SMART ou disques indisponibles. L'apparence exacte dépend du fichier `/etc/ugreen-leds.conf` ; un défaut SMART doit être confirmé dans les journaux.
 
 **Précautions :** ne jamais forcer un disque membre d'un RAID actif en veille pour tester une LED. Les noms `/dev/sdX`, les emplacements `diskN` et l'interface réseau peuvent varier après redémarrage ou selon le modèle UGREEN.
+
+## 19. Nouveautés 1.0.4 — Modes DAY/NIGHT/OFF et RESTART
+
+**Testées sur DXP6800 Pro (Debian 13 / OMV 8)** : migration depuis 1.0.3, DAY (Power violet 50), NIGHT (Power violet 10, surveillance LED disque/réseau arrêtée), OFF (Power 0), redémarrages de services, retour OFF → DAY et persistance du mode NIGHT après reboot. Le RAID10 est resté [4/4] [UUUU].
+
+```bash
+ugreen-led-control day
+ugreen-led-control night
+ugreen-led-control off
+ugreen-led-control restart
+ugreen-led-control status
+```
+
+Les marqueurs persistants sont `/var/lib/ugreen-led-complete/night` et `/var/lib/ugreen-led-complete/disabled`. Le service `ugreen-led-manager-power.service` est actif en DAY/NIGHT et inactif en OFF ; les moniteurs disque/réseau/hotplug sont inactifs en NIGHT/OFF. Le service hotplug utilise toujours `udevadm monitor` et ne nécessite pas de règle .rules supplémentaire.
+
+**Non vérifié individuellement :** persistance de OFF après reboot, et cycle hotplug SATA réel après la migration en 1.0.4. Les anciennes sections de ce guide décrivent le comportement historique 1.0.3 lorsqu'elles mentionnent seulement `on/off/status`.
+
