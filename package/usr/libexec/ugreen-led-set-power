@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+state=/var/lib/ugreen-led-complete
+led=/sys/class/leds/power
+[ -e "$state/disabled" ] && exit 0
+[ -w "$led/brightness" ] || { echo 'Power LED not available' >&2; exit 1; }
+if [ -e "$state/night" ]; then level=10; else level=50; fi
+printf '%s\n' none > "$led/blink_type"
+printf '%s\n' '255 0 255' > "$led/color"
+printf '%s\n' "$level" > "$led/brightness"
