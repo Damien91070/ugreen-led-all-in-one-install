@@ -19,5 +19,5 @@ if [[ -f /etc/udev/rules.d/90-ugreen-led-hotplug.rules ]]; then
 fi
 systemctl daemon-reload
 systemctl enable ugreen-probe-leds.service ugreen-diskiomon.service ugreen-netdevmon@enp89s0.service ugreen-led-manager-hotplug.service ugreen-led-manager-power.service
-/usr/sbin/ugreen-led-control on
+/usr/sbin/ugreen-led-control restart
 echo "Migration complete. Backup: $backup"
