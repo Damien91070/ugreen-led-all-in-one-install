@@ -1,16 +1,17 @@
 # Changelog
 
-## v1.0.3 — Hardware tested on DXP6800 Pro (2026-11-18)
-- Add `ugreen-check-standby` using `smartctl -n standby -i` for SATA standby detection.
-- Apply configured standby/healthy LED colors, without overriding SMART/error colors or unknown states.
-- Enforce **30-second minimum** poll interval (clamps older 1-second configurations).
-- Fix background standby helper PID handling in `ugreen-diskiomon`.
-- Verified upgrade from v1.0.2, standby detection and wake on `/dev/sde` → `disk6`: green `0 255 0` → blue `0 0 255` → green `0 255 0`.
-- Fresh OMV 8 installation and other NAS models remain untested.
+## 1.0.4 — LED day/night/off and restart (validated on DXP6800 Pro)
 
-## v1.0.2
-- Add `i2c-tools` as an APT dependency.
-- Verify upgrade from v1.0.1 on UGREEN DXP6800 Pro with Debian 13 / OMV 8.
+- Add `ugreen-led-control day`, `night`, `restart`; keep `on` as alias for `day`, plus `off` and `status`.
+- DAY: Power purple brightness 50, disk and network monitors enabled.
+- NIGHT: Power purple brightness 10, disk/network LEDs off, monitor services stopped.
+- OFF: all LEDs off, including Power.
+- Persist mode via `/var/lib/ugreen-led-complete/night` or `/var/lib/ugreen-led-complete/disabled`; defaults to DAY.
+- systemd Power unit uses mode-aware ExecCondition; disks/network/hotplug are skipped in NIGHT and OFF.
+- Preserve SATA udev hotplug monitor, suppress updates outside DAY.
+- Restart reapplies the persisted mode. Setup now respects the selected mode instead of forcing DAY.
+- Upgrade 1.0.3 → 1.0.4 tested on DXP6800 Pro with Debian 13 / OMV 8.
+- Hardware validated: DAY↔NIGHT, NIGHT→OFF→DAY, RESTART in DAY and NIGHT, NIGHT survives NAS reboot, RAID 10 intact.
+- Not yet individually verified: OFF persists after a reboot; actual hotplug after upgrading to 1.0.4.
 
-## v1.0.1
-- Consolidate DKMS driver, LED utilities and manager; add power LED service and SATA hotplug monitoring.
+Previous versions: see GitHub history and previous releases.
