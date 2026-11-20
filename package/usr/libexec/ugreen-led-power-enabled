@@ -1,0 +1,3 @@
+#!/bin/sh
+# Power LED remains enabled in DAY and NIGHT modes, not OFF.
+test ! -e /var/lib/ugreen-led-complete/disabled
