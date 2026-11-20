@@ -9,7 +9,7 @@ try:
     readable,_,_=select.select([fd],[],[],timeout)
     if not readable:
         due=None
-        if os.path.exists('/var/lib/ugreen-led-complete/disabled'): continue
+        if any(os.path.exists('/var/lib/ugreen-led-complete/'+f) for f in ('disabled','night')): continue
         print('Refreshing UGREEN disk LEDs after SATA hotplug',flush=True)
         subprocess.run(['/usr/bin/systemctl','restart','ugreen-diskiomon.service'],check=False)
         continue
