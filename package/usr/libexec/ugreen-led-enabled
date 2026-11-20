@@ -1,2 +1,4 @@
 #!/bin/sh
-test ! -e /var/lib/ugreen-led-complete/disabled
+# Disk/network/hotplug services run only in DAY mode.
+state=/var/lib/ugreen-led-complete
+test ! -e "$state/disabled" && test ! -e "$state/night"
