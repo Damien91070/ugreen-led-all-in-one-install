@@ -22,9 +22,9 @@ Unofficial integration of the UGREEN front-panel LED driver, monitoring tools, a
 | NAS administration | OpenMediaVault 8 |
 | Tested kernel | `7.2.12+deb13-amd64` |
 | Driver | `led-ugreen/0.3`, built with DKMS |
-| Current tested integration | **v1.0.3** |
+| Current tested integration | **v1.0.4** |
 
-v1.0.2 was tested for upgrade, driver setup, systemd services, LED controls, reboot persistence, and SATA hotplug. **v1.0.3 was additionally installed and hardware-tested** on the same NAS.
+v1.0.2 was tested for upgrade, driver setup, systemd services, LED controls, reboot persistence, and SATA hotplug. **v1.0.3 and v1.0.4 were installed and hardware-tested** on the same NAS. v1.0.4 adds persistent DAY/NIGHT/OFF modes and restart.
 
 ### Tested disk standby / wake sequence (v1.0.3)
 
@@ -43,12 +43,24 @@ These are the **tested host's configuration values**: `COLOR_DISK_HEALTH="0 255 
 
 The polling interval is **at least 30 seconds**, even if a legacy config sets `STANDBY_CHECK_INTERVAL=1`. The helper does **not** command drives to sleep and never overrides unknown/alert LED colors.
 
+## LED modes (v1.0.4)
+
+| Command | Result |
+|---|---|
+| `ugreen-led-control day` / `on` | Power purple 50; disk/network LEDs and monitors enabled |
+| `ugreen-led-control night` | Power purple 10; other LEDs and monitors off |
+| `ugreen-led-control off` | All LEDs off |
+| `ugreen-led-control restart` | Reapply persisted mode and required services |
+| `ugreen-led-control status` | Print mode and systemd service states |
+
+**Validated on DXP6800 Pro:** DAY/NIGHT transitions, OFF→DAY, restart in DAY/NIGHT, NIGHT persistence across reboot. OFF persistence across reboot and post-upgrade SATA hotplug not separately validated. See [1.0.4 release notes](RELEASE_NOTES_v1.0.4.md).
+
 ## Features
 
 - Consolidates three older packages: `led-ugreen-dkms 0.3`, `led-ugreen-utils 0.3`, and `ugreen-led-manager 1.0.0`.
 - DKMS kernel driver, disk activity and SMART indication, network activity LEDs.
 - SATA hotplug detection and disk LED monitor refresh.
-- Power LED policy (purple, brightness 50), control `on|off|status`.
+- Power LED policy: DAY purple brightness 50, NIGHT purple brightness 10, OFF all LED channels off. Control `on|day|night|off|restart|status`.
 - New v1.0.3 disk standby / wake LED indicator.
 - APT dependencies including `i2c-tools`, migration/setup, diagnostic scripts.
 
@@ -56,11 +68,11 @@ The original three `.deb` archives are not nested inside this package; their fun
 
 ## Install / upgrade
 
-Download the v1.0.3 binary from the [Releases page](https://github.com/Damien91070/ugreen-led-all-in-one-install/releases) when it is published.
+Download the v1.0.4 binary from the [Releases page](https://github.com/Damien91070/ugreen-led-all-in-one-install/releases) when it is published.
 
 ```bash
 apt update
-apt install ./ugreen-led-complete_1.0.3_amd64.deb
+apt install ./ugreen-led-complete_1.0.4_amd64.deb
 ugreen-led-complete-setup
 systemctl restart ugreen-diskiomon.service
 ugreen-led-complete-check
@@ -70,7 +82,9 @@ Matching Linux **kernel headers and build tools** are required for DKMS and may 
 
 ```bash
 ugreen-led-control on
+ugreen-led-control night
 ugreen-led-control off
+ugreen-led-control restart
 ugreen-led-control status
 pgrep -af ugreen-check-standby
 journalctl -u ugreen-diskiomon.service -n 50 --no-pager
@@ -84,7 +98,7 @@ Never force a disk in an active RAID array into standby just to test its LED. Fo
 
 `package/` contains the extracted Debian payload and maintainer scripts. `scripts/build-deb.sh` rebuilds the package from the payload after restoring executable permissions sometimes lost by ZIP/GitHub web uploads. `docs/GUIDE_FR.md` provides a full French Trilium reference.
 
-The v1.0.3 source tree includes `package/usr/bin/ugreen-check-standby` and the updated `package/usr/bin/ugreen-diskiomon`. Before publishing, ensure the `v1.0.3` tag and release binary correspond to this source tree.
+The v1.0.4 source tree includes `package/usr/bin/ugreen-check-standby` and the updated `package/usr/bin/ugreen-diskiomon`. Before publishing, ensure the `v1.0.4` tag and release binary correspond to this source tree.
 
 The package contains precompiled upstream userspace utilities. Rebuilding the Debian archive is **not** the same as compiling all upstream userspace binaries from their original sources. The DKMS kernel module is built at installation time.
 
@@ -99,7 +113,9 @@ Run these commands as `root` (or with `sudo`). These examples apply to the teste
 ```bash
 # Global LED power / state
 ugreen-led-control on
+ugreen-led-control night
 ugreen-led-control off
+ugreen-led-control restart
 ugreen-led-control status
 
 # Full system diagnostics and DKMS
