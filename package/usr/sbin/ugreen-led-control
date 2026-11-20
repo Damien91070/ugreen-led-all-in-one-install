@@ -1,25 +1,92 @@
 #!/bin/bash
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo 'Run as root' >&2; exit 1; }
-state=/var/lib/ugreen-led-complete/disabled
-services=(ugreen-led-manager-hotplug.service ugreen-diskiomon.service ugreen-netdevmon@enp89s0.service ugreen-led-manager-power.service)
-case "${1:-}" in
- off)
-  mkdir -p /var/lib/ugreen-led-complete; touch "$state"
-  for svc in "${services[@]}" ugreen-led-hotplug.service ugreen-power-led.service; do systemctl stop "$svc" || true; done
-  for led in power netdev disk{1..8}; do
-   path=/sys/class/leds/$led; [[ -d "$path" ]] || continue
-   for attr in trigger blink_type; do [[ ! -w "$path/$attr" ]] || echo none > "$path/$attr" || true; done
-   [[ ! -w "$path/brightness" ]] || echo 0 > "$path/brightness" || true
+
+state_dir=/var/lib/ugreen-led-complete
+mode_off="$state_dir/disabled"
+mode_night="$state_dir/night"
+# Physical slot LEDs: disk1..disk8; netdev may use link-activity triggers.
+monitors=(ugreen-led-manager-hotplug.service ugreen-diskiomon.service ugreen-netdevmon@enp89s0.service)
+power=ugreen-led-manager-power.service
+probe=ugreen-probe-leds.service
+
+current_mode() {
+  if [[ -e "$mode_off" ]]; then printf 'OFF';
+  elif [[ -e "$mode_night" ]]; then printf 'NIGHT';
+  else printf 'DAY'; fi
+}
+
+stop_monitors() {
+  # Explicit stop is not restarted by systemd Restart=always.
+  systemctl stop "${monitors[@]}"
+}
+
+blank_activity_leds() {
+  local led path attr
+  for led in netdev disk{1..8}; do
+    path="/sys/class/leds/$led"
+    [[ -d "$path" ]] || continue
+    for attr in trigger blink_type; do
+      if [[ -w "$path/$attr" ]]; then printf '%s\n' none > "$path/$attr" || true; fi
+    done
+    if [[ -w "$path/brightness" ]]; then printf '0\n' > "$path/brightness" || true; fi
   done
-  echo 'LEDs off';;
- on)
-  rm -f "$state"
-  systemctl start ugreen-probe-leds.service
-  for svc in "${services[@]}"; do systemctl start "$svc"; done
-  echo 'LEDs on';;
- status)
-  if [[ -f "$state" ]]; then echo 'Mode: OFF'; else echo 'Mode: ON'; fi
-  for svc in ugreen-probe-leds.service "${services[@]}"; do printf '%s: ' "$svc"; systemctl is-active "$svc" || true; done;;
- *) echo 'Usage: ugreen-led-control {on|off|status}'; exit 2;;
+}
+
+blank_power_led() {
+  local path=/sys/class/leds/power
+  [[ -d "$path" ]] || return 0
+  for attr in trigger blink_type; do
+    if [[ -w "$path/$attr" ]]; then printf '%s\n' none > "$path/$attr" || true; fi
+  done
+  [[ ! -w "$path/brightness" ]] || printf '0\n' > "$path/brightness"
+}
+
+apply_mode() {
+  case "$(current_mode)" in
+    DAY)
+      systemctl start "$probe"
+      # Restart (not only start) to apply modified configuration after DAY/RESTART.
+      systemctl restart "$power"
+      systemctl restart "${monitors[@]}"
+      echo 'Mode: DAY (power 50, disk/network monitoring enabled)';;
+    NIGHT)
+      stop_monitors
+      systemctl start "$probe"
+      blank_activity_leds
+      systemctl restart "$power"
+      echo 'Mode: NIGHT (power 10, disk/network LEDs off)';;
+    OFF)
+      stop_monitors
+      systemctl stop "$power"
+      blank_activity_leds
+      blank_power_led
+      echo 'Mode: OFF (all LEDs off)';;
+  esac
+}
+
+case "${1:-}" in
+  on|day)
+    mkdir -p "$state_dir"
+    rm -f "$mode_off" "$mode_night"
+    apply_mode;;
+  night)
+    mkdir -p "$state_dir"
+    rm -f "$mode_off"
+    touch "$mode_night"
+    apply_mode;;
+  off)
+    mkdir -p "$state_dir"
+    touch "$mode_off"
+    rm -f "$mode_night"
+    apply_mode;;
+  restart)
+    apply_mode;;
+  status)
+    printf 'Mode: %s\n' "$(current_mode)"
+    for svc in "$probe" "${monitors[@]}" "$power"; do
+      printf '%s: ' "$svc"
+      systemctl is-active "$svc" || true
+    done;;
+  *) echo 'Usage: ugreen-led-control {on|day|night|off|restart|status}' >&2; exit 2;;
 esac
